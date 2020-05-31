@@ -1,0 +1,5 @@
+[falcon-config]
+Alarm = 20
+1fAlarm = 484
+logDelimiter = '  '
+utcDeltaTimeHours = +2
