@@ -1,6 +1,7 @@
 
 import serial
 import pynmea2
+import re
 from datetime import timezone, timedelta, datetime, time, date
 
 def convertGps(input):
@@ -38,49 +39,55 @@ class Gnss(object):
 
     def parse(self):
         if self.serial.inWaiting() > 20:
-            input = self.serial.readline().decode()
-            # rychlostna optimalizacia
-            # if input.find("GGA", beg=0, end=len(string)/2) > 0:
-            if input.find("GGA", 0, 10) > 0:
-                msg = pynmea2.parse(input)
+            data = self.serial.readline()
+            # print(data)
+            # print(data.isalnum())
+            if data[1] == 71:
+                # print("decode")
+                input = data.decode()
 
-                self.data.QualityFix = msg.gps_qual
+                # rychlostna optimalizacia
+                # if input.find("GGA", beg=0, end=len(string)/2) > 0:
+                if input.find("GGA", 0, 10) > 0:
+                    msg = pynmea2.parse(input)
 
-                if msg.gps_qual and int(msg.gps_qual) >= 1:
-                    # print(msg.timestamp)
-                    # self.data.Time = msg.timestamp.strftime('%H:%M:%S.%f')[:-3]
+                    self.data.QualityFix = msg.gps_qual
 
-                    # convert to config time zone
-                    hour = int(msg.timestamp.strftime('%H')) + self.configDeltaTime
-                    if hour >= 24:
-                        hour -= 24
-                    elif hour < 0:
-                        hour = 24 + hour
+                    if msg.gps_qual and int(msg.gps_qual) >= 1:
+                        # print(msg.timestamp)
+                        # self.data.Time = msg.timestamp.strftime('%H:%M:%S.%f')[:-3]
 
-                    self.data.Time = str(hour).zfill(2) + msg.timestamp.strftime(':%M:%S.%f')[:-3]
-                    self.falconTime = str(hour).zfill(2) +  msg.timestamp.strftime('%M%S')
+                        # convert to config time zone
+                        hour = int(msg.timestamp.strftime('%H')) + self.configDeltaTime
+                        if hour >= 24:
+                            hour -= 24
+                        elif hour < 0:
+                            hour = 24 + hour
 
-                    self.data.Lat = convertGps(str(msg.lat))
-                    self.data.LatDir = msg.lat_dir
-                    self.data.Lon = convertGps(str(msg.lon))
-                    self.data.LonDir = msg.lon_dir
-                    self.data.Alt = msg.altitude
-                    self.data.AltUnit = msg.altitude_units
-                    self.data.SatNum = msg.num_sats
+                        self.data.Time = str(hour).zfill(2) + msg.timestamp.strftime(':%M:%S.%f')[:-3]
+                        self.falconTime = str(hour).zfill(2) +  msg.timestamp.strftime('%M%S')
 
-                    return True
-                else:
-                    print("No fix")
-                    return False
+                        self.data.Lat = convertGps(str(msg.lat))
+                        self.data.LatDir = msg.lat_dir
+                        self.data.Lon = convertGps(str(msg.lon))
+                        self.data.LonDir = msg.lon_dir
+                        self.data.Alt = msg.altitude
+                        self.data.AltUnit = msg.altitude_units
+                        self.data.SatNum = msg.num_sats
 
-            elif input.find('RMC') > 0:
-                #read date only once
-                if not self.data.Date and self.hasFix():
-                    line = input.split(",")
-                    date = line[9]
-                    if len(date) >= 5:
-                        self.data.Date = date[0] + date[1] + '.' + date[2] + date[3] + '.' + date[4] + date[5]
-                        self.falconDate = str("20")+ date[4] + date[5] + date[2] + date[3] + date[0] + date[1]
+                        return True
+                    else:
+                        print("No fix")
+                        return False
+
+                elif input.find('RMC') > 0:
+                    #read date only once
+                    if not self.data.Date and self.hasFix():
+                        line = input.split(",")
+                        date = line[9]
+                        if len(date) >= 5:
+                            self.data.Date = date[0] + date[1] + '.' + date[2] + date[3] + '.' + date[4] + date[5]
+                            self.falconDate = str("20")+ date[4] + date[5] + date[2] + date[3] + date[0] + date[1]
 
         return False
 
