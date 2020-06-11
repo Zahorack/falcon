@@ -2,6 +2,10 @@ import itertools
 import copy
 from falcon.falcon import FalconData, FalconMeasurementData
 from falcon.gnss import GnssData
+import time
+
+def millis():
+    return int(round(time.time() * 1000))
 
 logHeader = ['DATE', 'TIME', 'MEAS', 'ERROR', 'ALARM', '1F', '2F', 'LAT', 'N', 'LON','E', 'ALT', 'M', 'SATNUM']
 
@@ -27,6 +31,10 @@ class Logger(object):
 
         self.gpsList = []
 
+        self.telemetryDataList = []
+        self.telemetryWaiting = 0
+        self.lastTelemetryWrite = 0
+
 
     def writeOnDisk(self):
         path = '/falcon/'
@@ -46,8 +54,6 @@ class Logger(object):
                 file.write('\n')
 
 
-
-
     def write(self):
         # print(self.string())
         self.writeOnDisk()
@@ -56,9 +62,15 @@ class Logger(object):
         # self.serial.write(self.string().encode('utf-8'))
         # self.serial.write(b'\n')
 
+    def writeTelemetry(self):
+        if millis() > (self.lastTelemetryWrite + 90):
+            if self.telemetryWaiting > 0:
+                self.serial.write(self.telemetryDataList[5-self.telemetryWaiting].encode('utf-8'))
+                self.telemetryWaiting -= 1
+            self.lastTelemetryWrite = millis()
+
     def updateGnss(self, gnssData):
         self.gps = gnssData
-
         self.gpsList.append(copy.copy(gnssData))
 
         if len(self.gpsList) > 5:
@@ -68,9 +80,12 @@ class Logger(object):
         # print("updateFalcon")
 
         self.falconErrorCode = falconData.errorCode
-        tel = str()
+
         # print("new")
         counter = 0
+
+        telemetry = []
+
         if len(self.gpsList) > 4:
             for data, gps in zip(falconData.data, self.gpsList):
                 # print(data.meas, data.f1, data.f2, data.time)
@@ -82,6 +97,7 @@ class Logger(object):
                 self.falcon = data
                 self.gps = gps
 
+                telemetry.append(self.telemetryString())
 
                 #self.gps.Lat = self.convertGps(self.gps.Lat)
                 #self.gps.Lon = self.convertGps(self.gps.Lon)
@@ -89,9 +105,8 @@ class Logger(object):
                 counter += 1
                 self.write()
 
-                if counter < 2:
-                    tel = tel + self.string() + '\n'
-            self.serial.write(tel.encode('utf-8'))
+            self.telemetryWaiting = 5
+            self.telemetryDataList = telemetry
 
 
     def convertGps(self, input):
@@ -128,8 +143,18 @@ class Logger(object):
                 self.gps.AltUnit,
                 self.gps.SatNum]
 
+    def telemetry_list(self):
+        return [self.falcon.meas,
+                self.falcon.f1,
+                self.falcon.f2,
+                self.gps.Alt
+                ]
+
     def string(self):
         return self.logDelimiter.join(map(str, self.list()))
+
+    def telemetryString(self):
+        return str(self.logDelimiter.join(map(str, self.telemetry_list())) + '\n')
 
     def noFixMessage(self):
         self.serial.write("Gps has no fix, please wait..\n".encode())

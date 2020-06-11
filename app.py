@@ -111,6 +111,8 @@ if __name__ == '__main__':
                 log.noFixMessage()
                 GPIO.output(LED2, GPIO.LOW)
 
+        log.writeTelemetry()
+
 
     usb.close()
     usart.close()
