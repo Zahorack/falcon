@@ -53,8 +53,8 @@ class Logger(object):
         self.writeOnDisk()
         # print(self.falcon.time)
 
-        self.serial.write(self.string().encode('utf-8'))
-        self.serial.write(b'\n')
+        # self.serial.write(self.string().encode('utf-8'))
+        # self.serial.write(b'\n')
 
     def updateGnss(self, gnssData):
         self.gps = gnssData
@@ -68,7 +68,7 @@ class Logger(object):
         # print("updateFalcon")
 
         self.falconErrorCode = falconData.errorCode
-
+        tel = str()
         # print("new")
         counter = 0
         if len(self.gpsList) > 4:
@@ -88,6 +88,10 @@ class Logger(object):
 
                 counter += 1
                 self.write()
+
+                if counter < 2:
+                    tel = tel + self.string() + '\n'
+            self.serial.write(tel.encode('utf-8'))
 
 
     def convertGps(self, input):
@@ -137,7 +141,3 @@ class Logger(object):
     def usbNotOpenMessage(self):
         self.serial.write('Cannot open USB port (check if sensor is connected)\n')
         print('Cannot open USB port (check if sensor is connected)\n')
-
-
-
-
